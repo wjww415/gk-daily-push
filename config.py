@@ -143,7 +143,7 @@ NEWS_DAY = os.getenv("NEWS_DAY") or ""
 
 # 首次运行（本地还没索引）时：True = 照常推送，可能一次推一大串
 #                          False = 只建索引不推送，避免被刷屏
-FIRST_RUN_PUSH = True
+FIRST_RUN_PUSH = False
 
 # ============================== 去重索引 ==============================
 STATE_FILE = "state/seen.json"   # 记录已推送过的链接，靠它实现"只推新的"
