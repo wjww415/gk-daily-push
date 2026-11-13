@@ -150,8 +150,10 @@ STATE_FILE = "state/seen.json"   # 记录已推送过的链接，靠它实现"�
 STATE_MAX = 3000                 # 索引最多保留多少条（先进先出）
 
 # ============================== 消息长度 ==============================
-# 一条消息正文的字节预算（企业微信 markdown 上限 4096 字节，留点余量）
-MSG_BUDGET = 3400
+# 一条消息正文的字节预算。两种消息类型的上限不同：
+# text 只有 2048 字节，markdown 有 4096 字节。这里按消息类型自动取值，
+# 余量留给标题行、摘要行和源健康度告警。
+MSG_BUDGET = 1900 if (os.getenv("WEWORK_MSG_TYPE") or "text").lower() == "text" else 3400
 
 # ============================== 网络 ==============================
 REQUEST_TIMEOUT = 15    # 单次请求超时（秒）
@@ -168,7 +170,7 @@ FORCE_IPV4 = True
 # 优先读环境变量（GitHub Secrets），没配就读这里的默认值
 PUSH_METHOD = os.getenv("PUSH_METHOD") or ""            # 填 wework 走企业微信
 WEWORK_WEBHOOK = os.getenv("WEWORK_WEBHOOK") or ""
-WEWORK_MSG_TYPE = os.getenv("WEWORK_MSG_TYPE") or "markdown"   # markdown / text
+WEWORK_MSG_TYPE = os.getenv("WEWORK_MSG_TYPE") or "text"   # markdown / text（默认 text：纯文本，便于直接复制）
 
 # 消息标题
 REPORT_TITLE = "每日时政"
