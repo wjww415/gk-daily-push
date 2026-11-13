@@ -149,11 +149,11 @@ _MSG_HEADER_RESERVE = 90
 
 
 def _page_header(page, total, now):
-    """第 page/total 条消息的标题行。"""
+    """第 page/total 条消息的标题行（纯文本，不带 markdown 标记）。"""
     date_str = time.strftime("%m-%d", now)
     if total <= 1:
-        return f"**📰 {config.REPORT_TITLE} · {date_str}**"
-    return f"**📰 {config.REPORT_TITLE} · {date_str}（{page}/{total}）**"
+        return f"{config.REPORT_TITLE} · {date_str}"
+    return f"{config.REPORT_TITLE} · {date_str}（{page}/{total}）"
 
 
 def build_messages(items, notice=""):
@@ -163,16 +163,19 @@ def build_messages(items, notice=""):
     （记了就等于永久丢内容）。现在改成拆条：每条都在企业微信的长度上限内，
     内容一条不丢；返回值里的"条数"是给调用方记账的 —— 只有真发出去的那几条才记账。
 
-    企业微信 markdown 正文上限 4096 字节，这里按 config.MSG_BUDGET 分页，
+    企业微信 text 正文上限 2048 字节（markdown 是 4096），这里按 config.MSG_BUDGET 分页，
     余量留给标题行、摘要行和 notice。
     """
     now = bj_now()
 
     # 先摊平成 (源名, 正文行) —— 分页跨了源时，新的一页要重新打一次源标题。
+    # 纯文本格式：编号 + 考点标签 + 标题占一行，链接另起一行（缩进 3 个空格），
+    # 这样复制时标题和链接互不粘连，也不会出现 markdown 的 [标题](链接) 语法。
     entries = [(it.get("source", ""),
-                f"- {_tag_prefix(it.get('topic', ''))}"
-                f"[{_clean_title(it['title'])}]({it['url']})")
-               for it in items]
+                f"{i}. {_tag_prefix(it.get('topic', ''))}"
+                f"{_clean_title(it['title'])}"
+                f"{chr(10)}   {it['url']}")
+               for i, it in enumerate(items, 1)]
 
     # notice（源健康度告警）只挂在**最后一条**消息上，它自己可能有 150 多字节，
     # 所以必须一起预留 —— 只按 _MSG_HEADER_RESERVE 算的话，
@@ -183,14 +186,14 @@ def build_messages(items, notice=""):
     pages, cur, cur_source = [], {"lines": [], "used": 0, "count": 0}, None
 
     for src, line in entries:
-        block = ([f"**{src}**"] if src != cur_source else []) + [line]
+        block = ([f"【{src}】"] if src != cur_source else []) + [line]
         size = len(("\n".join(block) + "\n").encode("utf-8"))
 
         if cur["lines"] and cur["used"] + size > budget:
             # 这一页装不下了：先收下它，另起一页（新页要重新写源标题）
             pages.append(cur)
             cur = {"lines": [], "used": 0, "count": 0}
-            block = [f"**{src}**", line]
+            block = [f"【{src}】", line]
             size = len(("\n".join(block) + "\n").encode("utf-8"))
 
         if size > budget and not cur["lines"]:
@@ -273,7 +276,7 @@ def main():
     # ------- 只发一条测试消息，验证企业微信通道（不抓取、不动索引）-------
     if config.TEST_PUSH:
         ok = safe_push(
-            f"**🐾 {config.REPORT_TITLE} · 通道测试**\n"
+            f"🐾 {config.REPORT_TITLE} · 通道测试\n"
             f"看到这条说明企业微信机器人配置成功。\n"
             f"当前配置了 {len(config.SOURCES)} 个抓取源，"
             f"每天北京时间 02:30 自动触发（随机延迟 0~15 分钟）。",
@@ -331,7 +334,7 @@ def main():
             else:
                 state["seen"] = seen + [it["url"] for it in all_new]
                 save_state(state)
-                ready = (f"**✅ {config.REPORT_TITLE} 已就绪**\n"
+                ready = (f"✅ {config.REPORT_TITLE} 已就绪\n"
                          f"首次运行已建立索引（{len(all_new)} 条时政），从明天起只推新增内容。")
                 if notice:
                     ready += f"\n\n{notice}"
@@ -340,7 +343,7 @@ def main():
 
         if not new_items:
             save_state(state)  # 内容没变的话它不会写盘，也就不会产生提交
-            body = f"**📭 {config.REPORT_TITLE}**\n{_news_day_label()}没有新的时政内容。"
+            body = f"📭 {config.REPORT_TITLE}\n{_news_day_label()}没有新的时政内容。"
             if notice:
                 body += f"\n\n{notice}"
             _send(body, is_success=True)
@@ -376,7 +379,7 @@ def main():
         logging.error("任务异常：%s", exc)
         logging.error("堆栈：\n%s", tb)
         safe_push(
-            f"**❌ {config.REPORT_TITLE} 运行失败**\n"
+            f"❌ {config.REPORT_TITLE} 运行失败\n"
             f"错误类型：{type(exc).__name__}\n"
             f"错误信息：{str(exc)[:300]}\n\n"
             f"日志尾部：\n{tail_logs(12)[-600:]}",
