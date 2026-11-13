@@ -75,11 +75,12 @@ def push(content, is_success=True, webhook=None, msg_type=None):
         logging.warning("没配 WEWORK_WEBHOOK，跳过推送。")
         return False
 
-    flag = "✅" if is_success else "❌"
+    # 纯文本消息里不再加 ✅ 前缀（清单消息带个对勾很奇怪），只在失败时标 ❌
+    flag = "" if is_success else "❌ "
     if msg_type == "text":
         # ⚠️ text 类型的上限是 2048 字节，比 markdown 的 4096 小一半。
         #    以前两种情况共用 4000，切成 text 之后长消息会被企微直接拒掉。
-        content = _truncate(f"{flag} {content}", MAX_BYTES_TEXT)
+        content = _truncate(f"{flag}{content}", MAX_BYTES_TEXT)
         payload = {"msgtype": "text", "text": {"content": content}}
     else:
         content = _truncate(content, MAX_BYTES)
